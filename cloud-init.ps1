@@ -81,7 +81,7 @@ function Find-FullPathInDrive {
         [string]$file
     )
 
-    if ($file.IndexOf("/" -eq -1)) {
+    if ($file.IndexOf("/") -eq -1) {
         $file = $file.Split("/")[-1]
     }
     

@@ -91,6 +91,8 @@ function Find-FullPathInDrive {
         $file = $file.Split("/")[-1]
     }
     
+    Write-CloudLog "Searching for $file in $CloudDrive" -Level "DEBUG"
+
     $file_path = Get-ChildItem -Path $drivePath -Recurse -Filter $file | ForEach-Object { $_.FullName  }
 
     if ($file_path) {

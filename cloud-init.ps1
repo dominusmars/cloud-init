@@ -57,13 +57,16 @@ function Find-CloudInitDrive {
         $drivePath = "${driveLetter}:\"
         
         # Search recursively for cloud-init specific files
-        $cloudMetaData = Get-ChildItem -Path $drivePath -Recurse -Filter $meta_data_label -ErrorAction SilentlyContinue
-        $cloudUserFile = Get-ChildItem -Path $drivePath -Recurse -Filter $user_data_label -ErrorAction SilentlyContinue
-
-        if ($cloudMetaData -and $cloudUserFile) {
-            Write-CloudLog "Found cloud-init files in ${drivePath}" -Level "INFO"
-            return $drivePath
+        $cloudMetaData = Get-ChildItem -Path $drivePath -Recurse -Filter $meta_data_label
+        $cloudUserFile = Get-ChildItem -Path $drivePath -Recurse -Filter $user_data_label
+        
+        if (-not $cloudMetaData -or -not $cloudUserFile) {
+            Write-CloudLog "No cloud-init files found in ${drivePath}" -Level "DEBUG"
+            continue
         }
+        Write-CloudLog "Found cloud-init files in ${drivePath}" -Level "INFO"
+        return $drivePath
+       
     }
     
     # Check all drives as a fallback

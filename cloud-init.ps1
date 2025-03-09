@@ -66,6 +66,7 @@ function Find-CloudInitDrive {
             Write-CloudLog "No cloud-init files found in ${drivePath}" -Level "DEBUG"
             continue
         }
+
         Write-CloudLog "Found cloud-init files in ${drivePath}" -Level "INFO"
         return $drivePath
        
@@ -93,12 +94,12 @@ function Find-FullPathInDrive {
     
     Write-CloudLog "Searching for $file in $CloudDrive" -Level "DEBUG"
 
-    $file_path = Get-ChildItem -Path $drivePath -Recurse -Filter $file | ForEach-Object { $_.FullName  }
+    $file_path = (Get-ChildItem -Path $drivePath -Recurse -Filter $file | ForEach-Object { $_.FullName  })[0]
 
-    Write-CloudLog "Found cloud-init in ${drivePath} at ${file_path}" -Level "INFO"
+    Write-CloudLog "Found ${file} in ${drivePath} at ${file_path}" -Level "INFO"
 
     if ($file_path) {
-        Write-CloudLog "Found cloud-init in ${drivePath} at ${file_path}" -Level "INFO"
+        Write-CloudLog "Found ${file} in ${drivePath} at ${file_path}" -Level "INFO"
         return $file_path
     }
     else {
@@ -115,7 +116,7 @@ function Get-CloudMetadata {
         [string]$CloudDrive
     )
     
-    $metadataPath = Find-FullPathInDrive $CloudDrive $meta_data_label
+    $metadataPath = Find-FullPathInDrive  --CloudDrive $CloudDrive --file $meta_data_label
     if (-not (Test-Path $metadataPath)) {
         Write-CloudLog "No meta-data file found" -Level "WARN"
         return $null
@@ -168,7 +169,7 @@ function Get-CloudUserdata {
         [string]$CloudDrive
     )
     
-    $userdataPath = Find-FullPathInDrive $CloudDrive $user_data_label
+    $userdataPath = Find-FullPathInDrive --CloudDrive $CloudDrive --file $user_data_label
     if (-not (Test-Path $userdataPath)) {
         Write-CloudLog "No user-data file found" -Level "WARN"
         return $null
@@ -259,7 +260,7 @@ function Get-CloudNetworkConfig {
         [string]$NetworkConfigPath
     )
     
-    $networkConfigPath = Find-FullPathInDrive $CloudDrive $NetworkConfigPath
+    $networkConfigPath = Find-FullPathInDrive --CloudDrive $CloudDrive --file $NetworkConfigPath
     if (-not (Test-Path $networkConfigPath)) {
         Write-CloudLog "No network-config file found" -Level "WARN"
         return $null

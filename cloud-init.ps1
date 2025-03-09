@@ -258,6 +258,12 @@ function Get-CloudNetworkConfig {
         $content = Get-Content $networkConfigPath -Raw
         Write-CloudLog "Successfully read network-config file" -Level "DEBUG"
         
+
+        if ($content -match "^auto\s+(\S+)") {
+            Write-CloudLog "Detected Unix-style network configuration" -Level "DEBUG"
+            return Convert-UnixStyleNetworkDef $content
+        }
+
         # Parse YAML network config
         if (-not (Get-Module -ListAvailable -Name "powershell-yaml")) {
             Write-CloudLog "Installing PowerShell-Yaml module..." -Level "DEBUG"
@@ -275,7 +281,8 @@ function Get-CloudNetworkConfig {
 }
 
 # Function to apply metadata configuration
-function Apply-CloudMetadata {
+# sets the administrator password and SSH public keys and network configuration
+function Set-MetadataConfig {
     param (
         [object]$Metadata
     )
@@ -301,42 +308,22 @@ function Apply-CloudMetadata {
             $adminUser | Set-LocalUser -Password $securePassword -ErrorAction Stop
         }
     }
-
-    
-    # Set hostname if provided
-    if ($Metadata.hostname -or $Metadata.local_hostname) {
-        $hostname = $Metadata.hostname ?? $Metadata.local_hostname
-        Write-CloudLog "Setting hostname to: $hostname" -Level "INFO"
-        
-        try {
-            Rename-Computer -NewName $hostname -Force -ErrorAction Stop
-            Write-CloudLog "Hostname set successfully, reboot required to apply" -Level "INFO"
-            $script:rebootRequired = $true
-        }
-        catch {
-            Write-CloudLog "Error setting hostname: $_" -Level "ERROR"
-        }
-    }
-    
-    # Process other metadata as needed
-    # Instance ID
-    if ($Metadata.instance_id) {
-        Write-CloudLog "Instance ID: $($Metadata.instance_id)" -Level "INFO"
-    }
     
     # Public keys
     if ($Metadata.public_keys) {
-        Apply-SSHPublicKeys -PublicKeys $Metadata.public_keys
+        Set-SSHPublicKeys -PublicKeys $Metadata.public_keys
     }
+
+    # Network configuration
     if ($Metadata.network_config) {
         $networkConfig =  Get-CloudNetworkConfig $CloudDrive $Metadata.network_config.content_path
-        Apply-CloudNetworkConfig -NetworkConfig $networkConfig
+        Set-CloudNetworkConfig -NetworkConfig $networkConfig
     }
 
 }
 
 # Function to apply SSH public keys
-function Apply-SSHPublicKeys {
+function Set-SSHPublicKeys {
     param (
         [object]$PublicKeys
     )
@@ -377,9 +364,9 @@ function Apply-SSHPublicKeys {
 }
 
 # Function to apply network configuration
-function Apply-CloudNetworkConfig {
+function Set-CloudNetworkConfig {
     param (
-        [string]$NetworkConfig
+        [System.Object]$NetworkConfig
     )
     
     if (-not $NetworkConfig) {
@@ -396,11 +383,38 @@ function Apply-CloudNetworkConfig {
             Write-CloudLog "No active network adapters found" -Level "WARN"
             return
         }
+        $adapter = $netAdapters | Select-Object -First 1
 
+        if($NetworkConfig.interface) {
+            if ($NetworkConfig.inet -eq "dhcp") {
+                Write-CloudLog "Setting adapter to use DHCP" -Level "INFO"
+                Set-NetIPInterface -InterfaceIndex $adapter.ifIndex -Dhcp Enabled
+            }elseif($NetworkConfig.inet -eq "static") {
+                $ipAddress = $NetworkConfig.address
+                $prefixLength = $NetworkConfig.netmask
+                Write-CloudLog "Setting static IP: $ipAddress/$prefixLength" -Level "INFO"
+                Remove-NetIPAddress -InterfaceIndex $adapter.ifIndex -Confirm:$false -ErrorAction SilentlyContinue
+                # might need to convert to number
+                New-NetIPAddress -InterfaceIndex $adapter.ifIndex -IPAddress $ipAddress -PrefixLength $prefixLength
+    
+                # Set gateway if provided
+                if ($NetworkConfig.gateway) {
+                    Write-CloudLog "Setting gateway: $($NetworkConfig.gateway)" -Level "INFO"
+                    Remove-NetRoute -InterfaceIndex $adapter.ifIndex -DestinationPrefix "0.0.0.0/0" -Confirm:$false -ErrorAction SilentlyContinue
+                    New-NetRoute -InterfaceIndex $adapter.ifIndex -DestinationPrefix "0.0.0.0/0" -NextHop $subnet.gateway
+                }
+            }
 
-        
+          
+            # Set DNS servers
+            if ($NetworkConfig.dns) {
+                $dnsServers = $NetworkConfig.dns
+                Write-CloudLog "Setting DNS servers: $($dnsServers -join ', ')" -Level "INFO"
+                Set-DnsClientServerAddress -InterfaceIndex $adapter.ifIndex -ServerAddresses $dnsServers
+            }
 
-        
+            return 
+        }
 
         
         # Process network config format
@@ -492,7 +506,7 @@ function Apply-CloudNetworkConfig {
 }
 
 # Function to apply user-data configuration
-function Apply-CloudUserdata {
+function Set-CloudUserdata {
     param (
         [object]$Userdata
     )
@@ -516,6 +530,15 @@ function Apply-CloudUserdata {
             }
             catch {
                 Write-CloudLog "Error setting hostname: $_" -Level "ERROR"
+            }
+        }
+        if ($Userdata.fqdn) {
+            Write-CloudLog "Setting FQDN to: $($Userdata.fqdn)" -Level "INFO"
+            try {
+                Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" -Name "NV Domain" -Value $Userdata.fqdn -ErrorAction Stop
+            }
+            catch {
+                Write-CloudLog "Error setting FQDN: $_" -Level "ERROR"
             }
         }
         
@@ -648,7 +671,7 @@ function Apply-CloudUserdata {
                     }
                 }
                 catch {
-                    Write-CloudLog "Error writing file $filePath: $_" -Level "ERROR"
+                    Write-CloudLog "Error writing file $filePath $_" -Level "ERROR"
                 }
             }
         }
@@ -682,7 +705,7 @@ function Apply-CloudUserdata {
                         Start-Process -FilePath "choco" -ArgumentList "install $package -y" -Wait -NoNewWindow
                     }
                     catch {
-                        Write-CloudLog "Error installing package $package: $_" -Level "ERROR"
+                        Write-CloudLog "Error installing package $package $_" -Level "ERROR"
                     }
                 }
             }
@@ -753,13 +776,13 @@ try {
     # Read cloud-init files
     $metadata = Get-CloudMetadata -CloudDrive $cloudDrive
     $userdata = Get-CloudUserdata -CloudDrive $cloudDrive
-
-    $networkConfig = Get-CloudNetworkConfig -CloudDrive $cloudDrive
     
     # Apply configurations
-    Apply-CloudMetadata -Metadata $metadata
-    Apply-CloudUserdata -Userdata $userdata
-    Apply-CloudNetworkConfig -NetworkConfig $networkConfig
+
+    # also applies network configuration
+    Set-MetadataConfig -Metadata $metadata 
+    Set-CloudUserdata -Userdata $userdata
+
     
     # Mark first boot as complete
     Set-FirstBootComplete

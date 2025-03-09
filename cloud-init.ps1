@@ -50,17 +50,18 @@ function Find-CloudInitDrive {
         $_.FileSystemLabel -match "cidata|config-2" -or
         $_.DriveType -eq 5  # CD-ROM drives
     }
+
     
     foreach ($drive in $cloudDrives) {
         $driveLetter = $drive.DriveLetter
         $drivePath = "${driveLetter}:\"
         
         # Search recursively for cloud-init specific files
-        $cloudInitFiles = Get-ChildItem -Path $drivePath -Recurse -Filter $meta_data_label -ErrorAction SilentlyContinue
-        $cloudInitFiles += Get-ChildItem -Path $drivePath -Recurse -Filter $user_data_label -ErrorAction SilentlyContinue
+        $cloudMetaData = Get-ChildItem -Path $drivePath -Recurse -Filter $meta_data_label -ErrorAction SilentlyContinue
+        $cloudUserFile = Get-ChildItem -Path $drivePath -Recurse -Filter $user_data_label -ErrorAction SilentlyContinue
 
-        if ($cloudInitFiles) {
-            Write-CloudLog "Found cloud-init files in $drivePath" -Level "INFO"
+        if ($cloudMetaData -and $cloudUserFile) {
+            Write-CloudLog "Found cloud-init files in ${drivePath}" -Level "INFO"
             return $drivePath
         }
     }

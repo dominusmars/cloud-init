@@ -1,0 +1,12 @@
+#cloud-config
+hostname: testing-4-windows-init
+manage_etc_hosts: true
+fqdn: testing-4-windows-init
+password: admin123
+ssh_authorized_keys:
+  - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC7btbgm72N+eK6VXnzSvSU9WciXIQK/kxi0nioCxOtS/dLvsTPMYxAkFmG/zzhx+01r6mHpL1SepPlUGTraCy5vbVXDwqJrBw8W5gODEwOPak4bFfOw9Q4a/o6jy0wrLBNhFn0/99ibVyiHQHmYa43/r4ncZwsrfOz9YKstrtrHiw6rorQcdtZp9qSMt9ADsQT7tZZBHiG5oVLPMPvIxh/b4AN5zdTCtC4JAoQGVEqd/2MfWrzdRLEJBp7fWqLsHh/ISiCAfs4GK4uppppWw3qmHu0bLBvr4AFeuJmujm0/AKT22FwadD0F7Vkxjd6GPzsDDUmyrANYzYAIRbbNVuKTzLmHVQ+dStoQUA1/8qLTC3AN0OsuQzy2xBMGH1qSoQrg9SvIAZijWzSBMNSd9ckkpjTPHfxRtMHLCpMXudvrkBmqpIutEOLN664IBPtPlNqxDoxQBledSq7ZjiriEbkG0Ntvbeejl30DET+UkYu9z55HR6+K/mkZS1dEXEUA0M= khawa@OneAndOnly
+chpasswd:
+  expire: False
+users:
+  - default
+package_upgrade: true

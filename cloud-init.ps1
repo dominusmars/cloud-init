@@ -95,8 +95,10 @@ function Find-FullPathInDrive {
 
     $file_path = Get-ChildItem -Path $drivePath -Recurse -Filter $file | ForEach-Object { $_.FullName  }
 
+    Write-CloudLog "Found cloud-init in ${drivePath} at ${file_path}" -Level "INFO"
+
     if ($file_path) {
-        Write-CloudLog "Found cloud-init files in ${drivePath} at ${file_path}" -Level "INFO"
+        Write-CloudLog "Found cloud-init in ${drivePath} at ${file_path}" -Level "INFO"
         return $file_path
     }
     else {

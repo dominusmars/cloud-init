@@ -55,6 +55,8 @@ function Find-CloudInitDrive {
     foreach ($drive in $cloudDrives) {
         $driveLetter = $drive.DriveLetter
         $drivePath = "${driveLetter}:\"
+
+        Write-CloudLog "Checking drive $drivePath" -Level "DEBUG"
         
         # Search recursively for cloud-init specific files
         $cloudMetaData = Get-ChildItem -Path $drivePath -Recurse -Filter $meta_data_label

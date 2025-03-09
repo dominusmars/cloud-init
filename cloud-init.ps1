@@ -93,7 +93,7 @@ function Find-FullPathInDrive {
         return $file_path
     }
     else {
-        Write-CloudLog "No cloud-init drive found" -Level "WARN"
+        Write-CloudLog "No ${file} found" -Level "WARN"
         return $null
     }
 

@@ -443,7 +443,7 @@ function Set-SSHPublicKeys {
         }
     }
 
-    }
+    
 
     Write-CloudLog "SSH public keys processed" -Level "INFO"
 }

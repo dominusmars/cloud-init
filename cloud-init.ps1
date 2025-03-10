@@ -96,8 +96,6 @@ function Find-FullPathInDrive {
 
     $file_path = Get-ChildItem -Path $Drive -Recurse -Filter $file | ForEach-Object { $_.FullName  }
 
-    Write-CloudLog "Found ${file} in ${Drive} at ${file_path}" -Level "INFO"
-
     if ($file_path) {
         Write-CloudLog "Found ${file} in ${Drive} at ${file_path}" -Level "INFO"
         return $file_path
@@ -211,6 +209,14 @@ function Get-CloudUserdata {
         return $null
     }
 }
+function ConvertTo-GatewayLength{
+    param (
+        [string]$netmask
+    )
+    $octets = $netmask -split "\."
+    $binary = ($octets | ForEach-Object { [Convert]::ToString([byte]$_, 2).PadLeft(8, '0') }) -join ""
+    return ($binary -replace "0+$").Length
+}
 
 function Convert-UnixStyleNetworkDef {
     param (
@@ -239,7 +245,11 @@ function Convert-UnixStyleNetworkDef {
             $config.address = $Matches[1]
         }
         elseif ($line -match "^\s*netmask\s+(\S+)") {
-            $config.netmask = $Matches[1]
+            if ($Matches[1] -match "\d+\.\d+\.\d+\.\d+") {
+                $config.netmask = ConvertTo-GatewayLength $Matches[1]
+            }else{
+                $config.netmask = $Matches[1]
+            }
         }
         elseif ($line -match "^\s*gateway\s+(\S+)") {
             $config.gateway = $Matches[1]
@@ -370,6 +380,9 @@ function Set-SSHPublicKeys {
         # Handle single key as string
         Write-CloudLog "Adding SSH key" -Level "DEBUG"
         Add-Content -Path $authorizedKeysPath -Value $PublicKeys -Force
+    }
+    else {
+        Write-CloudLog "Invalid SSH public keys format" -Level "WARN"
     }
     
     Write-CloudLog "SSH public keys processed" -Level "INFO"

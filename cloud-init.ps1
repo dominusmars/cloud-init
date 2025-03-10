@@ -94,12 +94,12 @@ function Find-FullPathInDrive {
     
     Write-CloudLog "Searching for $file in $Drive" -Level "DEBUG"
 
-    $file_path = (Get-ChildItem -Path $drivePath -Recurse -Filter $file | ForEach-Object { $_.FullName  })[0]
+    $file_path = Get-ChildItem -Path $Drive -Recurse -Filter $file | ForEach-Object { $_.FullName  }
 
-    Write-CloudLog "Found ${file} in ${drivePath} at ${file_path}" -Level "INFO"
+    Write-CloudLog "Found ${file} in ${Drive} at ${file_path}" -Level "INFO"
 
     if ($file_path) {
-        Write-CloudLog "Found ${file} in ${drivePath} at ${file_path}" -Level "INFO"
+        Write-CloudLog "Found ${file} in ${Drive} at ${file_path}" -Level "INFO"
         return $file_path
     }
     else {

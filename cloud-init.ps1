@@ -237,8 +237,6 @@ function Convert-UnixStyleNetworkDef {
     foreach ($line in $lines) {
         $line = $line.Trim()
 
-        Write-CloudLog $line -Level "DEBUG"
-
         if ($line -match "^auto\s+(\S+)") {
             $config.interface = $Matches[1]
         }
@@ -249,7 +247,6 @@ function Convert-UnixStyleNetworkDef {
             $config.address = $Matches[1]
         }
         elseif ($line -match "^\s*netmask\s+(\S+)") {
-            Write-CloudLog "Netmask: ${Matches}" -Level "DEBUG"
             $match = $Matches[1]
             if ($match -match "\d+\.\d+\.\d+\.\d+") {
                 $config.netmask = ConvertTo-GatewayLength -netmask $match
@@ -424,8 +421,7 @@ function Set-CloudNetworkConfig {
         $adapter = $netAdapters | Select-Object -First 1
 
         if($NetworkConfig.interface) {
-
-            
+            # Unix-style network configuration
 
             if ($NetworkConfig.inet -eq "dhcp") {
                 Write-CloudLog "Setting adapter to use DHCP" -Level "INFO"
@@ -442,7 +438,7 @@ function Set-CloudNetworkConfig {
                 if ($NetworkConfig.gateway) {
                     Write-CloudLog "Setting gateway: $($NetworkConfig.gateway)" -Level "INFO"
                     Remove-NetRoute -InterfaceIndex $adapter.ifIndex -DestinationPrefix "0.0.0.0/0" -Confirm:$false -ErrorAction SilentlyContinue
-                    New-NetRoute -InterfaceIndex $adapter.ifIndex -DestinationPrefix "0.0.0.0/0" -NextHop $subnet.gateway
+                    New-NetRoute -InterfaceIndex $adapter.ifIndex -DestinationPrefix "0.0.0.0/0" -NextHop $NetworkConfig.gateway
                 }
             }
 

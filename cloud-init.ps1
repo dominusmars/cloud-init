@@ -249,11 +249,12 @@ function Convert-UnixStyleNetworkDef {
             $config.address = $Matches[1]
         }
         elseif ($line -match "^\s*netmask\s+(\S+)") {
-            Write-CloudLog "Netmask: ${Matches[0]}" -Level "DEBUG"
-            if ($Matches[1] -match "\d+\.\d+\.\d+\.\d+") {
-                $config.netmask = ConvertTo-GatewayLength -netmask $Matches[1]
+            Write-CloudLog "Netmask: ${Matches}" -Level "DEBUG"
+            $match = $Matches[1]
+            if ($match -match "\d+\.\d+\.\d+\.\d+") {
+                $config.netmask = ConvertTo-GatewayLength -netmask $match
             }else{
-                $config.netmask = $Matches[1]
+                $config.netmask = $match
             }
         }
         elseif ($line -match "^\s*gateway\s+(\S+)") {

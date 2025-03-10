@@ -83,7 +83,7 @@ function Find-CloudInitDrive {
 # else will split the path and get the last element
 function Find-FullPathInDrive {
     param (
-        [string]$CloudDrive,
+        [string]$Drive,
         [string]$file
     )
 
@@ -92,7 +92,7 @@ function Find-FullPathInDrive {
         $file = $file.Split("/")[-1]
     }
     
-    Write-CloudLog "Searching for $file in $CloudDrive" -Level "DEBUG"
+    Write-CloudLog "Searching for $file in $Drive" -Level "DEBUG"
 
     $file_path = (Get-ChildItem -Path $drivePath -Recurse -Filter $file | ForEach-Object { $_.FullName  })[0]
 
@@ -169,7 +169,7 @@ function Get-CloudUserdata {
         [string]$CloudDrive
     )
     
-    $userdataPath = Find-FullPathInDrive --CloudDrive $CloudDrive --file $user_data_label
+    $userdataPath = Find-FullPathInDrive -Drive $CloudDrive -file $user_data_label
     if (-not (Test-Path $userdataPath)) {
         Write-CloudLog "No user-data file found" -Level "WARN"
         return $null

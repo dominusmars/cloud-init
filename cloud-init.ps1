@@ -394,6 +394,11 @@ function Set-SSHPublicKeys {
         $keyContent = Get-Content -Path $PublicKeys.FullName -Raw
         Add-Content -Path $authorizedKeysPath -Value $keyContent -Force
     }
+    elseif ($PublicKeys -is [System.Management.Automation.PSCustomObject]){
+        # Handle object with key property
+        Write-CloudLog "Adding SSH key" -Level "DEBUG"
+        Add-Content -Path $authorizedKeysPath -Value $PublicKeys.key -Force
+    }
     else {
         Write-CloudLog "Invalid SSH public keys format" -Level "WARN"
         Write-CloudLog "SSH public keys type is $($PublicKeys.GetType().Name)" -Level "DEBUG"

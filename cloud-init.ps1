@@ -249,7 +249,6 @@ function Convert-UnixStyleNetworkDef {
             $config.address = $Matches[1]
         }
         elseif ($line -match "^\s*netmask\s+(\S+)") {
-            Write-Host "HELLO"
             Write-CloudLog "Netmask: ${Matches[1]}" -Level "DEBUG"
             if ($Matches[1] -match "\d+\.\d+\.\d+\.\d+") {
                 $config.netmask = ConvertTo-GatewayLength -netmask $Matches[1]

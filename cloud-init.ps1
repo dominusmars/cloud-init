@@ -7,8 +7,8 @@ $VerbosePreference = "Continue"
 $ErrorActionPreference = "Stop"
 
 # Log file location
-$logDir = "C:\cloudbase-init\logs"
-$logFile = "$logDir\cloudbase-init-custom.log"
+$logDir = "C:\cloud-init\logs"
+$logFile = "$logDir\cloud-init-custom.log"
 
 $meta_data_label ="META_DATA.JSON"
 $user_data_label = "USER_DATA"
@@ -98,7 +98,20 @@ function Find-FullPathInDrive {
         Write-CloudLog "Found ${file} in ${Drive} at ${file_path}" -Level "INFO"
         return $file_path
     }
-    else {
+
+    # I hate this code
+
+    $file_path = Get-ChildItem -Path $Drive -Recurse -Filter $file.ToLower() | ForEach-Object { $_.FullName  }
+    if ($file_path) {
+        Write-CloudLog "Found ${file} in ${Drive} at ${file_path}" -Level "INFO"
+        return $file_path
+    }
+
+    $file_path = Get-ChildItem -Path $Drive -Recurse -Filter $file.ToUpper() | ForEach-Object { $_.FullName  }
+    if ($file_path) {
+        Write-CloudLog "Found ${file} in ${Drive} at ${file_path}" -Level "INFO"
+        return $file_path
+    }else {
         Write-CloudLog "No ${file} found" -Level "WARN"
         return $null
     }

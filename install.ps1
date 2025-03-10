@@ -1,14 +1,14 @@
 
 # Make sure to run this script as Administrator
 
-$logDir = "C:\cloudbase-init\logs"
+$logDir = "C:\cloud-init\logs"
 
 if (-not (Test-Path $logDir)) {
     New-Item -ItemType Directory -Path $logDir | Out-Null
 }
 
-Copy-Item -Path "./cloud-init.ps1" -Destination "C:\cloudbase-init\" -Force
-Copy-Item -Path "./start.bat" -Destination "C:\cloudbase-init\" -Force
+Copy-Item -Path "./cloud-init.ps1" -Destination "C:\cloud-init\" -Force
+Copy-Item -Path "./start.bat" -Destination "C:\cloud-init\" -Force
 
-sc.exe create cloudbase-init binPath= "C:\cloudbase-init\start.bat" start= auto
-Start-Service cloudbase-init
+sc.exe create cloud-init binPath= "C:\cloud-init\start.bat" start= auto
+Start-Service cloud-init

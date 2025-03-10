@@ -1,4 +1,29 @@
+function Find-FullPathInDrive {
+    param (
+        [string]$Drive,
+        [string]$file
+    )
 
+    $isPath = $file -match "/"
+    if ($isPath) {
+        $file = $file.Split("/")[-1]
+    }
+    
+    # Write-CloudLog "Searching for $file in $Drive" -Level "DEBUG"
+
+    $file_path = Get-ChildItem -Path $Drive -Recurse -Filter $file | ForEach-Object { $_.FullName  }
+
+    if ($file_path) {
+        # Write-CloudLog "Found ${file} in ${Drive} at ${file_path}" -Level "INFO"
+        return $file_path
+    }
+    else {
+        # Write-CloudLog "No ${file} found" -Level "WARN"
+        return $null
+    }
+
+    
+}
 function Convert-UnixStyleNetworkDef {
     param (
         [string]$networkDef
@@ -39,6 +64,59 @@ function Convert-UnixStyleNetworkDef {
     return $config
 
 }
+function Get-CloudMetadata {
+    param (
+        [string]$CloudDrive
+    )
+    
+    $metadataPath = Find-FullPathInDrive -Drive $CloudDrive -file $meta_data_label
+    if (-not (Test-Path $metadataPath)) {
+        # Write-CloudLog "No meta-data file found" -Level "WARN"
+        return $null
+    }
+    
+    try {
+        $content = Get-Content $metadataPath -Raw
+        # Write-CloudLog "Successfully read meta-data file" -Level "DEBUG"
+        
+        # Parse the metadata
+        # Cloud-init metadata can be in YAML or JSON format
+        if ($content -match "^---") {
+            # Looks like YAML
+            # Write-CloudLog "Detected YAML format meta-data" -Level "DEBUG"
+            if (-not (Get-Module -ListAvailable -Name "powershell-yaml")) {
+                # Write-CloudLog "Installing PowerShell-Yaml module..." -Level "DEBUG"
+                [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+                Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force | Out-Null
+                Install-Module -Name powershell-yaml -Force -Scope CurrentUser | Out-Null
+            }
+            Import-Module powershell-yaml
+            return ConvertFrom-Yaml $content
+        }
+        elseif ($content -match "^\s*{") {
+            # Looks like JSON
+            # Write-CloudLog "Detected JSON format meta-data" -Level "DEBUG"
+            return $content | ConvertFrom-Json
+        }
+        else {
+            # Assume simple key-value format
+            # Write-CloudLog "Detected simple key-value format meta-data" -Level "DEBUG"
+            $metadata = @{}
+            foreach ($line in ($content -split "`n")) {
+                if ($line -match "^([^:]+):\s*(.+)$") {
+                    $metadata[$Matches[1].Trim()] = $Matches[2].Trim()
+                }
+            }
+            return $metadata
+        }
+    }
+    catch {
+        # Write-CloudLog "Error reading meta-data: $_" -Level "ERROR"
+        return $null
+    }
+}
+$user_data_label = "USER_DATA"
+$meta_data_label = "META_DATA.JSON"
 function Get-CloudUserdata {
     param (
         [string]$CloudDrive
@@ -52,18 +130,18 @@ function Get-CloudUserdata {
     
     try {
         $content = Get-Content $userdataPath -Raw
-        Write-CloudLog "Successfully read user-data file" -Level "DEBUG"
+        # Write-CloudLog "Successfully read user-data file" -Level "DEBUG"
         
         # Check for cloud-config format
         if ($content -match "^#cloud-config") {
-            Write-CloudLog "Detected cloud-config format user-data" -Level "DEBUG"
+            # Write-CloudLog "Detected cloud-config format user-data" -Level "DEBUG"
             
             # Remove the #cloud-config line
             $yamlContent = $content -replace "^#cloud-config\s*", ""
             
             # Parse YAML
             if (-not (Get-Module -ListAvailable -Name "powershell-yaml")) {
-                Write-CloudLog "Installing PowerShell-Yaml module..." -Level "DEBUG"
+                # Write-CloudLog "Installing PowerShell-Yaml module..." -Level "DEBUG"
                 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
                 Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force | Out-Null
                 Install-Module -Name powershell-yaml -Force -Scope CurrentUser | Out-Null
@@ -82,7 +160,7 @@ function Get-CloudUserdata {
         }
     }
     catch {
-        Write-CloudLog "Error reading user-data: $_" -Level "ERROR"
+        # Write-CloudLog "Error reading user-data: $_" -Level "ERROR"
         return $null
     }
 }
@@ -117,8 +195,8 @@ Write-Host "Netmask: $($config.netmask)"
 Write-Host "Gateway: $($config.gateway)"
 Write-Host "DNS: $($config.dns -join ", ")"
 
-$gatewayLength = ConvertTo-GatewayLength -netmask $config.netmask
-$config.netmask -match "\d+\.\d+\.\d+\.\d+"
-Write-Host "Gateway Length: $gatewayLength"
+$userData = Get-CloudMetadata -CloudDrive "C:"
+
+Write-Host "User Data: $($userData | ConvertTo-Json -Depth 5)"
 
 

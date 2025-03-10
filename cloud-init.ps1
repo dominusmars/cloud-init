@@ -561,7 +561,7 @@ function Set-CloudUserdata {
         if ($Userdata.hostname) {
             Write-CloudLog "Setting hostname to: $($Userdata.hostname)" -Level "INFO"
             try {
-                Rename-Computer -NewName $Userdata.hostname -Force -ErrorAction Stop
+                Rename-Computer -NewName $Userdata.hostname -Force -ErrorAction Continue
                 Write-CloudLog "Hostname set successfully, reboot required to apply" -Level "INFO"
                 $script:rebootRequired = $true
             }
@@ -572,7 +572,7 @@ function Set-CloudUserdata {
         if ($Userdata.fqdn) {
             Write-CloudLog "Setting FQDN to: $($Userdata.fqdn)" -Level "INFO"
             try {
-                Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" -Name "NV Domain" -Value $Userdata.fqdn -ErrorAction Stop
+                Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" -Name "NV Domain" -Value $Userdata.fqdn -ErrorAction Continue
             }
             catch {
                 Write-CloudLog "Error setting FQDN: $_" -Level "ERROR"

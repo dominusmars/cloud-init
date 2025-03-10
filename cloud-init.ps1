@@ -365,6 +365,23 @@ function Set-MetadataConfig {
 
 }
 
+Set-SshAdministratorKey {
+    param (
+        [string]$key
+    )
+    Write-CloudLog "Adding SSH key $key to Administrator" -Level "DEBUG"
+
+    $sshDir = "C:\ProgramData\ssh"
+    if (-not (Test-Path $sshDir)) {
+        New-Item -ItemType Directory -Path $sshDir -Force | Out-Null
+    }
+    $authorizedKeysPath = "$sshDir\administrators_authorized_keys"
+
+    Add-Content -Path $authorizedKeysPath -Value $key -Force
+
+    icacls.exe $authorizedKeysPath /inheritance:r /grant "Administrators:F" /grant "SYSTEM:F" | Out-Null
+}
+
 # Function to apply SSH public keys
 function Set-SSHPublicKeys {
     param (
@@ -389,6 +406,7 @@ function Set-SSHPublicKeys {
             $keyValue = $PublicKeys[$keyName]
             Write-CloudLog "Adding SSH key: $keyName" -Level "DEBUG"
             Add-Content -Path $authorizedKeysPath -Value $keyValue -Force
+            Set-SshAdministratorKey -key $keyValue
         }
     }
     elseif ($PublicKeys -is [System.Array]) {
@@ -396,18 +414,21 @@ function Set-SSHPublicKeys {
         foreach ($key in $PublicKeys) {
             Write-CloudLog "Adding SSH key" -Level "DEBUG"
             Add-Content -Path $authorizedKeysPath -Value $key -Force
+            Set-SshAdministratorKey -key $key
         }
     }
     elseif ($PublicKeys -is [System.String]) {
         # Handle single key as string
         Write-CloudLog "Adding SSH key" -Level "DEBUG"
         Add-Content -Path $authorizedKeysPath -Value $PublicKeys -Force
+        Set-SshAdministratorKey -key $PublicKeys
     }
     elseif ($PublicKeys -is [System.IO.FileInfo]) {
         # Handle file object
         Write-CloudLog "Adding SSH key from file" -Level "DEBUG"
         $keyContent = Get-Content -Path $PublicKeys.FullName -Raw
         Add-Content -Path $authorizedKeysPath -Value $keyContent -Force
+        Set-SshAdministratorKey -key $keyContent
     }
     elseif ($PublicKeys -is [System.Management.Automation.PSCustomObject]){
         # Handle object with key property
@@ -415,6 +436,8 @@ function Set-SSHPublicKeys {
             Write-CloudLog "Adding SSH key $key" -Level "DEBUG"
             $value = $key.Value
             Add-Content -Path $authorizedKeysPath -Value $value -Force
+
+            Set-SshAdministratorKey -key $value
         }
     }
     else {

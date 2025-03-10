@@ -245,6 +245,7 @@ function Convert-UnixStyleNetworkDef {
             $config.address = $Matches[1]
         }
         elseif ($line -match "^\s*netmask\s+(\S+)") {
+            Write-CloudLog "Netmask: $Matches[1]" -Level "DEBUG"
             if ($Matches[1] -match "\d+\.\d+\.\d+\.\d+") {
                 $config.netmask = ConvertTo-GatewayLength -netmask $Matches[1]
             }else{
@@ -419,13 +420,6 @@ function Set-CloudNetworkConfig {
 
         if($NetworkConfig.interface) {
 
-            Write-CloudLog "interface: $($NetworkConfig.interface)" -Level "INFO"
-            Write-CloudLog "inet: $($NetworkConfig.inet)" -Level "INFO"
-            Write-CloudLog "address: $($NetworkConfig.address)" -Level "INFO"
-            Write-CloudLog "netmask: $($NetworkConfig.netmask)" -Level "INFO"
-            Write-CloudLog "gateway: $($NetworkConfig.gateway)" -Level "INFO"
-            Write-CloudLog "dns: $($NetworkConfig.dns)" -Level "INFO"
-            
             
 
             if ($NetworkConfig.inet -eq "dhcp") {

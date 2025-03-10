@@ -26,11 +26,11 @@ function Write-CloudLog {
         [ValidateSet("INFO", "WARN", "ERROR", "DEBUG")]
         [string]$Level = "INFO"
     )
-    
+
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     $logMessage = "[$timestamp] [$Level] $Message"
     Add-Content -Path $logFile -Value $logMessage -Force
-    
+
     switch ($Level) {
         "ERROR" { Write-Error $Message }
         "WARN"  { Write-Warning $Message }
@@ -43,22 +43,22 @@ function Write-CloudLog {
 # Function to find the cloud-init drive
 function Find-CloudInitDrive {
     Write-CloudLog "Searching for cloud-init data drive..." -Level "DEBUG"
-    
+
     # Check for drive labels commonly used for cloud-init
-    $cloudDrives = Get-Volume | Where-Object { 
+    $cloudDrives = Get-Volume | Where-Object {
         $_.FileSystemLabel -match "cidata|config-2" -or
         $_.DriveType -eq 5  # CD-ROM drives
     }
 
-    
+
     foreach ($drive in $cloudDrives) {
         $driveLetter = $drive.DriveLetter
         $drivePath = "${driveLetter}:\"
-        
+
         # Search recursively for cloud-init specific files
         $cloudMetaData = Get-ChildItem -Path $drivePath -Recurse -Filter $meta_data_label
         $cloudUserFile = Get-ChildItem -Path $drivePath -Recurse -Filter $user_data_label
-        
+
         if (-not $cloudMetaData -or -not $cloudUserFile) {
             Write-CloudLog "No cloud-init files found in ${drivePath}" -Level "DEBUG"
             continue
@@ -66,11 +66,9 @@ function Find-CloudInitDrive {
 
         Write-CloudLog "Found cloud-init files in ${drivePath}" -Level "INFO"
         return $drivePath
-       
+
     }
-    
-    # Check all drives as a fallback
-   
+
     Write-CloudLog "No cloud-init drive found" -Level "WARN"
     return $null
 }
@@ -84,29 +82,17 @@ function Find-FullPathInDrive {
         [string]$file
     )
 
+    # Ignore path and look for just the file
     $isPath = $file -match "/"
     if ($isPath) {
         $file = $file.Split("/")[-1]
     }
-    
+
     Write-CloudLog "Searching for $file in $Drive" -Level "DEBUG"
 
+    # Already non-case sensitive
     $file_path = Get-ChildItem -Path $Drive -Recurse -Filter $file | ForEach-Object { $_.FullName  }
 
-    if ($file_path) {
-        Write-CloudLog "Found ${file} in ${Drive} at ${file_path}" -Level "INFO"
-        return $file_path
-    }
-
-    # I hate this code
-
-    $file_path = Get-ChildItem -Path $Drive -Recurse -Filter $file.ToLower() | ForEach-Object { $_.FullName  }
-    if ($file_path) {
-        Write-CloudLog "Found ${file} in ${Drive} at ${file_path}" -Level "INFO"
-        return $file_path
-    }
-
-    $file_path = Get-ChildItem -Path $Drive -Recurse -Filter $file.ToUpper() | ForEach-Object { $_.FullName  }
     if ($file_path) {
         Write-CloudLog "Found ${file} in ${Drive} at ${file_path}" -Level "INFO"
         return $file_path
@@ -115,7 +101,6 @@ function Find-FullPathInDrive {
         return $null
     }
 
-    
 }
 
 # Function to read cloud-init metadata
@@ -123,17 +108,17 @@ function Get-CloudMetadata {
     param (
         [string]$CloudDrive
     )
-    
+
     $metadataPath = Find-FullPathInDrive -Drive $CloudDrive -file $meta_data_label
     if (-not (Test-Path $metadataPath)) {
         Write-CloudLog "No meta-data file found" -Level "WARN"
         return $null
     }
-    
+
     try {
         $content = Get-Content $metadataPath -Raw
         Write-CloudLog "Successfully read meta-data file" -Level "DEBUG"
-        
+
         # Parse the metadata
         # Cloud-init metadata can be in YAML or JSON format
         if ($content -match "^---") {
@@ -176,24 +161,24 @@ function Get-CloudUserdata {
     param (
         [string]$CloudDrive
     )
-    
+
     $userdataPath = Find-FullPathInDrive -Drive $CloudDrive -file $user_data_label
     if (-not (Test-Path $userdataPath)) {
         Write-CloudLog "No user-data file found" -Level "WARN"
         return $null
     }
-    
+
     try {
         $content = Get-Content $userdataPath -Raw
         Write-CloudLog "Successfully read user-data file" -Level "DEBUG"
-        
+
         # Check for cloud-config format
         if ($content -match "^#cloud-config") {
             Write-CloudLog "Detected cloud-config format user-data" -Level "DEBUG"
-            
+
             # Remove the #cloud-config line
             $yamlContent = $content -replace "^#cloud-config\s*", ""
-            
+
             # Parse YAML
             if (-not (Get-Module -ListAvailable -Name "powershell-yaml")) {
                 Write-CloudLog "Installing PowerShell-Yaml module..." -Level "DEBUG"
@@ -208,8 +193,8 @@ function Get-CloudUserdata {
             # Return raw content for script or other formats
             return @{
                 "content" = $content
-                "format" = if ($content -match "^#!ps1|^<powershell>") { "powershell" } 
-                           elseif ($content -match "^#!cmd|^<script>") { "cmd" } 
+                "format" = if ($content -match "^#!ps1|^<powershell>") { "powershell" }
+                           elseif ($content -match "^#!cmd|^<script>") { "cmd" }
                            else { "unknown" }
             }
         }
@@ -288,17 +273,17 @@ function Get-CloudNetworkConfig {
         [string]$CloudDrive,
         [string]$NetworkConfigPath
     )
-    
+
     $networkConfigPath = Find-FullPathInDrive -Drive $CloudDrive -file $NetworkConfigPath
     if (-not (Test-Path $networkConfigPath)) {
         Write-CloudLog "No network-config file found" -Level "WARN"
         return $null
     }
-    
+
     try {
         $content = Get-Content $networkConfigPath -Raw
         Write-CloudLog "Successfully read network-config file" -Level "DEBUG"
-        
+
 
         if ($content -match "^auto\s+(\S+)") {
             Write-CloudLog "Detected Unix-style network configuration" -Level "DEBUG"
@@ -327,12 +312,12 @@ function Set-MetadataConfig {
     param (
         [object]$Metadata
     )
-    
+
     if (-not $Metadata) {
         Write-CloudLog "No metadata to apply" -Level "DEBUG"
         return
     }
-    
+
     Write-CloudLog "Applying metadata configuration..." -Level "INFO"
 
 
@@ -348,12 +333,14 @@ function Set-MetadataConfig {
             Write-CloudLog "Setting password for Administrator user" -Level "INFO"
             $adminUser | Set-LocalUser -Password $securePassword -ErrorAction Stop
         }
+
+        # Active Administrator Account
         net.exe user Administrator /active:yes | Out-Null
     }
-    
+
     # Public keys
     if ($Metadata.public_keys) {
-        Set-SSHPublicKeys -PublicKeys $Metadata.public_keys
+        Set-SSHPublicKeys -PublicKeys $Metadata.public_keys -admin $true
     }
 
     # Network configuration
@@ -368,7 +355,7 @@ function Set-SshAdministratorKey {
     param (
         [string]$key
     )
-    Write-CloudLog "Adding SSH key $key to Administrator" -Level "DEBUG"
+    Write-CloudLog "Adding SSH key $key to administrators_authorized_keys" -Level "DEBUG"
 
     $sshDir = "C:\ProgramData\ssh"
     if (-not (Test-Path $sshDir)) {
@@ -381,70 +368,83 @@ function Set-SshAdministratorKey {
     icacls.exe $authorizedKeysPath /inheritance:r /grant "Administrators:F" /grant "SYSTEM:F" | Out-Null
 }
 
-# Function to apply SSH public keys
+# Function to apply SSH public keys, Default to Administrator
+# Warning, Also adds it to the administrators_authorized_keys file in C:\ProgramData\ssh
 function Set-SSHPublicKeys {
     param (
         [object]$PublicKeys,
+        [bool]$admin = $false,
         [string]$user = "Administrator"
     )
-    
+
     Write-CloudLog "Processing SSH public keys... adding to C:\Users\$user" -Level "INFO"
-    
+
     # Create .ssh directory if it doesn't exist
     $sshDir = "C:\Users\$user\.ssh"
     if (-not (Test-Path $sshDir)) {
         New-Item -ItemType Directory -Path $sshDir -Force | Out-Null
     }
-    
-    $authorizedKeysPath = "$sshDir\authorized_keys"
-    
-    # Process keys based on format
-    if ($PublicKeys -is [System.Collections.IDictionary]) {
-        # Handle dictionary of keys
-        foreach ($keyName in $PublicKeys.Keys) {
-            $keyValue = $PublicKeys[$keyName]
-            Write-CloudLog "Adding SSH key: $keyName" -Level "DEBUG"
-            Add-Content -Path $authorizedKeysPath -Value $keyValue -Force
-            Set-SshAdministratorKey -key $keyValue
-        }
-    }
-    elseif ($PublicKeys -is [System.Array]) {
-        # Handle array of keys
-        foreach ($key in $PublicKeys) {
-            Write-CloudLog "Adding SSH key" -Level "DEBUG"
-            Add-Content -Path $authorizedKeysPath -Value $key -Force
-            Set-SshAdministratorKey -key $key
-        }
-    }
-    elseif ($PublicKeys -is [System.String]) {
-        # Handle single key as string
-        Write-CloudLog "Adding SSH key" -Level "DEBUG"
-        Add-Content -Path $authorizedKeysPath -Value $PublicKeys -Force
-        Set-SshAdministratorKey -key $PublicKeys
-    }
-    elseif ($PublicKeys -is [System.IO.FileInfo]) {
-        # Handle file object
-        Write-CloudLog "Adding SSH key from file" -Level "DEBUG"
-        $keyContent = Get-Content -Path $PublicKeys.FullName -Raw
-        Add-Content -Path $authorizedKeysPath -Value $keyContent -Force
-        Set-SshAdministratorKey -key $keyContent
-    }
-    elseif ($PublicKeys -is [System.Management.Automation.PSCustomObject]){
-        # Handle object with key property
-        foreach ($key in $PublicKeys.PSObject.Properties) {
-            Write-CloudLog "Adding SSH key $key" -Level "DEBUG"
-            $value = $key.Value
-            Add-Content -Path $authorizedKeysPath -Value $value -Force
 
-            Set-SshAdministratorKey -key $value
+    $authorizedKeysPath = "$sshDir\authorized_keys"
+    # Process keys based on format
+    switch ($PublicKeys.GetType().Name) {
+        "Hashtable" {
+            # Handle dictionary of keys
+            foreach ($keyName in $PublicKeys.Keys) {
+                $keyValue = $PublicKeys[$keyName]
+                Write-CloudLog "Adding SSH key: $keyName" -Level "DEBUG"
+                Add-Content -Path $authorizedKeysPath -Value $keyValue -Force
+                if ($admin){
+                    Set-SshAdministratorKey -key $keyValue
+                }
+            }
+        }
+        "Object[]" {
+            # Handle array of keys
+            foreach ($key in $PublicKeys) {
+                Write-CloudLog "Adding SSH key" -Level "DEBUG"
+                Add-Content -Path $authorizedKeysPath -Value $key -Force
+                if ($admin){
+                    Set-SshAdministratorKey -key $key
+                }
+            }
+        }
+        "String" {
+            # Handle single key as string
+            Write-CloudLog "Adding SSH key" -Level "DEBUG"
+            Add-Content -Path $authorizedKeysPath -Value $PublicKeys -Force
+            if ($admin){
+                Set-SshAdministratorKey -key $PublicKeys
+            }
+        }
+        "FileInfo" {
+            # Handle file object
+            Write-CloudLog "Adding SSH key from file" -Level "DEBUG"
+            $keyContent = Get-Content -Path $PublicKeys.FullName -Raw
+            Add-Content -Path $authorizedKeysPath -Value $keyContent -Force
+            if ($admin){
+                Set-SshAdministratorKey -key $keyContent
+            }
+        }
+        "PSCustomObject" {
+            # Handle object with key property
+            foreach ($key in $PublicKeys.PSObject.Properties) {
+                Write-CloudLog "Adding SSH key $key" -Level "DEBUG"
+                $value = $key.Value
+                Add-Content -Path $authorizedKeysPath -Value $value -Force
+                if ($admin){
+                    Set-SshAdministratorKey -key $value
+                }
+            }
+        }
+        default {
+            Write-CloudLog "Invalid SSH public keys format" -Level "WARN"
+            Write-CloudLog "SSH public keys type is $($PublicKeys.GetType().Name)" -Level "DEBUG"
         }
     }
-    else {
-        Write-CloudLog "Invalid SSH public keys format" -Level "WARN"
-        Write-CloudLog "SSH public keys type is $($PublicKeys.GetType().Name)" -Level "DEBUG"
-        
+
     }
-    
+
     Write-CloudLog "SSH public keys processed" -Level "INFO"
 }
 
@@ -453,12 +453,12 @@ function Set-CloudNetworkConfig {
     param (
         [System.Object]$NetworkConfig
     )
-    
+
     if (-not $NetworkConfig) {
         Write-CloudLog "No network configuration to apply" -Level "DEBUG"
         return
     }
-    
+
     Write-CloudLog "Applying network configuration..." -Level "INFO"
 
 
@@ -469,42 +469,60 @@ function Set-CloudNetworkConfig {
             Write-CloudLog "No active network adapters found" -Level "WARN"
             return
         }
+
         $adapter = $netAdapters | Select-Object -First 1
 
         if($NetworkConfig.interface) {
+
             # Unix-style network configuration
 
             if ($NetworkConfig.inet -eq "dhcp") {
+
                 Write-CloudLog "Setting adapter to use DHCP" -Level "INFO"
                 Set-NetIPInterface -InterfaceIndex $adapter.ifIndex -Dhcp Enabled
+
             }elseif($NetworkConfig.inet -eq "static") {
-                $ipAddress = $NetworkConfig.address
-                $prefixLength = $NetworkConfig.netmask
-                Write-CloudLog "Setting static IP: $ipAddress/$prefixLength" -Level "INFO"
-                Remove-NetIPAddress -InterfaceIndex $adapter.ifIndex -Confirm:$false -ErrorAction SilentlyContinue
-                # might need to convert to number
-                New-NetIPAddress -InterfaceIndex $adapter.ifIndex -IPAddress $ipAddress -PrefixLength $prefixLength
-    
+                if ( $NetworkConfig.address){
+                    if (-not $NetworkConfig.netmask){
+                        Write-CloudLog "No netmask set by config assuming 24" -Level "WARN"
+                        $NetworkConfig.netmask = "24"
+                    }
+                    $ipAddress = $NetworkConfig.address
+                    $prefixLength = $NetworkConfig.netmask
+                    Write-CloudLog "Setting static IP: $ipAddress/$prefixLength" -Level "INFO"
+
+                    Remove-NetIPAddress -InterfaceIndex $adapter.ifIndex -Confirm:$false -ErrorAction SilentlyContinue
+                    New-NetIPAddress -InterfaceIndex $adapter.ifIndex -IPAddress $ipAddress -PrefixLength $prefixLength
+
+                }else {
+                    Write-CloudLog "No ip address set by config" -Level "WARN"
+                }
+
                 # Set gateway if provided
                 if ($NetworkConfig.gateway) {
                     Write-CloudLog "Setting gateway: $($NetworkConfig.gateway)" -Level "INFO"
+
                     Remove-NetRoute -InterfaceIndex $adapter.ifIndex -DestinationPrefix "0.0.0.0/0" -Confirm:$false -ErrorAction SilentlyContinue
                     New-NetRoute -InterfaceIndex $adapter.ifIndex -DestinationPrefix "0.0.0.0/0" -NextHop $NetworkConfig.gateway
+                }else {
+                    Write-CloudLog "No default gateway set" -Level "WARN"
                 }
             }
 
-          
+
             # Set DNS servers
             if ($NetworkConfig.dns) {
                 $dnsServers = $NetworkConfig.dns
                 Write-CloudLog "Setting DNS servers: $($dnsServers -join ', ')" -Level "INFO"
                 Set-DnsClientServerAddress -InterfaceIndex $adapter.ifIndex -ServerAddresses $dnsServers
+            }else {
+                Write-CloudLog "No default dns nameservers set" -Level "WARN"
             }
 
-            return 
+            return
         }
 
-        
+
         # Process network config format
         if ($NetworkConfig.version -eq 1) {
             # Version 1 format
@@ -512,25 +530,25 @@ function Set-CloudNetworkConfig {
                 foreach ($config in $NetworkConfig.config) {
                     if ($config.type -eq "physical") {
                         $adapter = $netAdapters | Select-Object -First 1
-                        
+
                         if ($config.subnets) {
                             foreach ($subnet in $config.subnets) {
                                 # Handle static IP
                                 if ($subnet.type -eq "static") {
                                     $ipAddress = $subnet.address
                                     $prefixLength = $subnet.netmask
-                                    
+
                                     # Convert netmask to prefix length if needed
                                     if ($prefixLength -match "\d+\.\d+\.\d+\.\d+") {
                                         $octets = $prefixLength -split "\."
                                         $binary = ($octets | ForEach-Object { [Convert]::ToString([byte]$_, 2).PadLeft(8, '0') }) -join ""
                                         $prefixLength = ($binary -replace "0+$").Length
                                     }
-                                    
+
                                     Write-CloudLog "Setting static IP: $ipAddress/$prefixLength" -Level "INFO"
                                     Remove-NetIPAddress -InterfaceIndex $adapter.ifIndex -Confirm:$false -ErrorAction SilentlyContinue
                                     New-NetIPAddress -InterfaceIndex $adapter.ifIndex -IPAddress $ipAddress -PrefixLength $prefixLength
-                                    
+
                                     # Set gateway if provided
                                     if ($subnet.gateway) {
                                         Write-CloudLog "Setting gateway: $($subnet.gateway)" -Level "INFO"
@@ -553,7 +571,7 @@ function Set-CloudNetworkConfig {
             if ($NetworkConfig.ethernets) {
                 $ethernetConfig = $NetworkConfig.ethernets | Select-Object -First 1
                 $adapter = $netAdapters | Select-Object -First 1
-                
+
                 if ($ethernetConfig.Value.dhcp4) {
                     Write-CloudLog "Setting adapter to use DHCP" -Level "INFO"
                     Set-NetIPInterface -InterfaceIndex $adapter.ifIndex -Dhcp Enabled
@@ -564,13 +582,13 @@ function Set-CloudNetworkConfig {
                         if ($address -match "^(.+)/(\d+)$") {
                             $ipAddress = $Matches[1]
                             $prefixLength = $Matches[2]
-                            
+
                             Write-CloudLog "Setting static IP: $ipAddress/$prefixLength" -Level "INFO"
                             Remove-NetIPAddress -InterfaceIndex $adapter.ifIndex -Confirm:$false -ErrorAction SilentlyContinue
                             New-NetIPAddress -InterfaceIndex $adapter.ifIndex -IPAddress $ipAddress -PrefixLength $prefixLength
                         }
                     }
-                    
+
                     # Set gateway
                     if ($ethernetConfig.Value.gateway4) {
                         Write-CloudLog "Setting gateway: $($ethernetConfig.Value.gateway4)" -Level "INFO"
@@ -578,7 +596,7 @@ function Set-CloudNetworkConfig {
                         New-NetRoute -InterfaceIndex $adapter.ifIndex -DestinationPrefix "0.0.0.0/0" -NextHop $ethernetConfig.Value.gateway4
                     }
                 }
-                
+
                 # Set DNS servers
                 if ($ethernetConfig.Value.nameservers -and $ethernetConfig.Value.nameservers.addresses) {
                     $dnsServers = $ethernetConfig.Value.nameservers.addresses
@@ -598,14 +616,14 @@ function Set-CloudUserdata {
     param (
         [object]$Userdata
     )
-    
+
     if (-not $Userdata) {
         Write-CloudLog "No user-data to apply" -Level "DEBUG"
         return
     }
-    
+
     Write-CloudLog "Applying user-data configuration..." -Level "INFO"
-    
+
     # Check if it's cloud-config YAML format
     if ($Userdata -is [System.Collections.IDictionary]) {
         # Set hostname
@@ -629,38 +647,38 @@ function Set-CloudUserdata {
                 Write-CloudLog "Error setting FQDN: $_" -Level "ERROR"
             }
         }
-        
+
         # Create users
         if ($Userdata.users) {
             foreach ($user in $Userdata.users) {
                 if ($user -eq "default") { continue }
-                
+
                 Write-CloudLog "Creating user: $($user.name)" -Level "INFO"
-                
+
                 try {
                     $userParams = @{
                         Name = $user.name
                     }
-                    
+
                     # Set password if provided
                     if ($user.passwd) {
                         $securePassword = ConvertTo-SecureString -String $user.passwd -AsPlainText -Force
                         $userParams.Password = $securePassword
                     }
-                    
+
                     # Set full name if provided
                     if ($user.gecos) {
                         $userParams.FullName = $user.gecos
                     }
-                    
+
                     # Create the user
                     New-LocalUser @userParams -Description "Created by cloud-init" -ErrorAction Stop
-                    
+
                     # Add to groups
                     if ($user.groups) {
                         foreach ($groupName in $user.groups.Split(',')) {
                             $groupName = $groupName.Trim()
-                            
+
                             # Map common Linux group names to Windows equivalents
                             switch ($groupName) {
                                 "sudo" { $groupName = "Administrators" }
@@ -668,30 +686,23 @@ function Set-CloudUserdata {
                                 "root" { $groupName = "Administrators" }
                                 default { }
                             }
-                            
+
                             # Create the group if it doesn't exist (except built-in groups)
                             if ($groupName -notin @("Administrators", "Users")) {
                                 if (-not (Get-LocalGroup -Name $groupName -ErrorAction SilentlyContinue)) {
                                     New-LocalGroup -Name $groupName -ErrorAction SilentlyContinue
                                 }
                             }
-                            
+
                             # Add user to group
                             Add-LocalGroupMember -Group $groupName -Member $user.name -ErrorAction SilentlyContinue
                         }
                     }
-                    
+
                     # Handle SSH keys
                     if ($user.ssh_authorized_keys) {
-                        $sshDir = "C:\Users\$($user.name)\.ssh"
-                        if (-not (Test-Path $sshDir)) {
-                            New-Item -ItemType Directory -Path $sshDir -Force | Out-Null
-                        }
-                        
-                        $authorizedKeysPath = "$sshDir\authorized_keys"
-                        
                         foreach ($key in $user.ssh_authorized_keys) {
-                            Add-Content -Path $authorizedKeysPath -Value $key -Force
+                            Set-SSHPublicKeys -user $user.name -PublicKeys $key
                         }
                     }
                 }
@@ -700,11 +711,11 @@ function Set-CloudUserdata {
                 }
             }
         }
-        
+
         # Run commands
         if ($Userdata.runcmd) {
             Write-CloudLog "Processing run commands..." -Level "INFO"
-            
+
             foreach ($cmd in $Userdata.runcmd) {
                 try {
                     if ($cmd -is [System.Array]) {
@@ -713,9 +724,9 @@ function Set-CloudUserdata {
                     else {
                         $command = $cmd
                     }
-                    
+
                     Write-CloudLog "Running command: $command" -Level "INFO"
-                    
+
                     # Execute the command based on its format
                     if ($command.StartsWith("powershell") -or $command.StartsWith("pwsh")) {
                         $psCommand = $command -replace "^powershell\s+", "" -replace "^pwsh\s+", ""
@@ -731,24 +742,24 @@ function Set-CloudUserdata {
                 }
             }
         }
-        
+
         # Write files
         if ($Userdata.write_files) {
             Write-CloudLog "Processing write_files section..." -Level "INFO"
-            
+
             foreach ($file in $Userdata.write_files) {
                 try {
                     $filePath = $file.path
                     $content = $file.content
-                    
+
                     Write-CloudLog "Writing file: $filePath" -Level "INFO"
-                    
+
                     # Create directory if it doesn't exist
                     $directory = Split-Path -Path $filePath -Parent
                     if (-not (Test-Path $directory)) {
                         New-Item -ItemType Directory -Path $directory -Force | Out-Null
                     }
-                    
+
                     # Handle encoding
                     if ($file.encoding -eq "base64") {
                         $bytes = [Convert]::FromBase64String($content)
@@ -763,21 +774,21 @@ function Set-CloudUserdata {
                 }
             }
         }
-        
+
         # Handle package installations
         if ($Userdata.packages) {
             Write-CloudLog "Processing packages section..." -Level "INFO"
-            
+
             # Check if Chocolatey is installed
             $chocoInstalled = $null -ne (Get-Command -Name "choco" -ErrorAction SilentlyContinue)
-            
+
             if (-not $chocoInstalled) {
                 Write-CloudLog "Installing Chocolatey package manager..." -Level "INFO"
                 try {
                     Set-ExecutionPolicy Bypass -Scope Process -Force
                     Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
                     $chocoInstalled = $true
-                    
+
                     # Refresh environment to find choco in path
                     $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
                 }
@@ -785,7 +796,7 @@ function Set-CloudUserdata {
                     Write-CloudLog "Error installing Chocolatey: $_" -Level "ERROR"
                 }
             }
-            
+
             if ($chocoInstalled) {
                 foreach ($package in $Userdata.packages) {
                     try {
@@ -802,13 +813,13 @@ function Set-CloudUserdata {
     # Check if it's a script format
     elseif ($Userdata.format -eq "powershell") {
         Write-CloudLog "Executing PowerShell script from user-data..." -Level "INFO"
-        
+
         try {
             $scriptContent = $Userdata.content -replace "^#!ps1\s*", "" -replace "^<powershell>", "" -replace "</powershell>$", ""
             $scriptPath = "$logDir\user-data-script.ps1"
-            
+
             Set-Content -Path $scriptPath -Value $scriptContent -Force
-            
+
             # Execute the script
             & $scriptPath
         }
@@ -818,13 +829,13 @@ function Set-CloudUserdata {
     }
     elseif ($Userdata.format -eq "cmd") {
         Write-CloudLog "Executing CMD script from user-data..." -Level "INFO"
-        
+
         try {
             $scriptContent = $Userdata.content -replace "^#!cmd\s*", "" -replace "^<script>", "" -replace "</script>$", ""
             $scriptPath = "$logDir\user-data-script.cmd"
-            
+
             Set-Content -Path $scriptPath -Value $scriptContent -Force
-            
+
             # Execute the script
             Start-Process -FilePath $scriptPath -Wait -NoNewWindow
         }
@@ -852,17 +863,17 @@ Write-CloudLog "Starting cloud-init processing for Windows..."
 try {
     # Check if this is first boot
     $markerFile = "$logDir\first-boot-complete"
-    
+
     # Find cloud-init drive
     $cloudDrive = Find-CloudInitDrive
     if (-not $cloudDrive) {
         Write-CloudLog "No cloud-init drive found. Exiting." -Level "WARN"
         exit 0
     }
-    
+
     # Variable to track if reboot is needed
     $script:rebootRequired = $false
-    
+
     # Read cloud-init files
     $metadata = Get-CloudMetadata -CloudDrive $cloudDrive
 
@@ -877,23 +888,23 @@ try {
     }
 
     $userdata = Get-CloudUserdata -CloudDrive $cloudDrive
-    
+
     # Apply configurations
 
     # also applies network configuration
-    Set-MetadataConfig -Metadata $metadata 
+    Set-MetadataConfig -Metadata $metadata
     Set-CloudUserdata -Userdata $userdata
 
-    
+
     # Mark first boot as complete
     Set-FirstBootComplete -uuid $metadata.uuid
-    
+
     # Reboot if needed
     if ($script:rebootRequired) {
         Write-CloudLog "Configuration requires a reboot. Rebooting system..." -Level "INFO"
         Restart-Computer -Force
     }
-    
+
     Write-CloudLog "Cloud-init processing completed successfully" -Level "INFO"
 }
 catch {

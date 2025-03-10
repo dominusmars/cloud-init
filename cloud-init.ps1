@@ -39,7 +39,6 @@ function Write-CloudLog {
     }
 }
 
-Write-CloudLog "Starting cloud-init processing for Windows..."
 
 # Function to find the cloud-init drive
 function Find-CloudInitDrive {
@@ -349,7 +348,7 @@ function Set-MetadataConfig {
             Write-CloudLog "Setting password for Administrator user" -Level "INFO"
             $adminUser | Set-LocalUser -Password $securePassword -ErrorAction Stop
         }
-        net user Administrator /active:yes | Out-Null
+        net.exe user Administrator /active:yes | Out-Null
     }
     
     # Public keys
@@ -365,7 +364,7 @@ function Set-MetadataConfig {
 
 }
 
-Set-SshAdministratorKey {
+function Set-SshAdministratorKey {
     param (
         [string]$key
     )
@@ -845,6 +844,9 @@ function Set-FirstBootComplete {
     Set-Content -Path $markerFile -Value ($uuid) -Force
     Write-CloudLog "First boot configuration completed" -Level "INFO"
 }
+
+
+Write-CloudLog "Starting cloud-init processing for Windows..."
 
 # Main execution
 try {

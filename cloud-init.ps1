@@ -236,6 +236,9 @@ function Convert-UnixStyleNetworkDef {
 
     foreach ($line in $lines) {
         $line = $line.Trim()
+        
+        Write-CloudLog $line -Level "DEBUG"
+
         if ($line -match "^auto\s+(\S+)") {
             $config.interface = $Matches[1]
         }

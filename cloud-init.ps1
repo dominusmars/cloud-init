@@ -116,7 +116,7 @@ function Get-CloudMetadata {
         [string]$CloudDrive
     )
     
-    $metadataPath = Find-FullPathInDrive  --CloudDrive $CloudDrive --file $meta_data_label
+    $metadataPath = Find-FullPathInDrive $CloudDrive --file $meta_data_label
     if (-not (Test-Path $metadataPath)) {
         Write-CloudLog "No meta-data file found" -Level "WARN"
         return $null

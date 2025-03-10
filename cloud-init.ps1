@@ -371,7 +371,7 @@ function Set-SSHPublicKeys {
         [object]$PublicKeys
     )
     
-    Write-CloudLog "Processing SSH public keys..." -Level "INFO"
+    Write-CloudLog "Processing SSH public keys... adding to ${env:USERPROFILE}" -Level "INFO"
     
     # Create .ssh directory if it doesn't exist
     $sshDir = "$env:USERPROFILE\.ssh"
@@ -410,9 +410,10 @@ function Set-SSHPublicKeys {
     }
     elseif ($PublicKeys -is [System.Management.Automation.PSCustomObject]){
         # Handle object with key property
-        Write-CloudLog "Adding SSH key" -Level "DEBUG"
         foreach ($key in $PublicKeys.PSObject.Properties) {
-            Add-Content -Path $authorizedKeysPath -Value $key.Value -Force
+            Write-CloudLog "Adding SSH key $key" -Level "DEBUG"
+            $value = $key.Value
+            Add-Content -Path $authorizedKeysPath -Value $value -Force
         }
     }
     else {

@@ -116,7 +116,7 @@ function Get-CloudMetadata {
         [string]$CloudDrive
     )
     
-    $metadataPath = Find-FullPathInDrive $CloudDrive --file $meta_data_label
+    $metadataPath = Find-FullPathInDrive -Drive $CloudDrive -file $meta_data_label
     if (-not (Test-Path $metadataPath)) {
         Write-CloudLog "No meta-data file found" -Level "WARN"
         return $null
@@ -260,7 +260,7 @@ function Get-CloudNetworkConfig {
         [string]$NetworkConfigPath
     )
     
-    $networkConfigPath = Find-FullPathInDrive --CloudDrive $CloudDrive --file $NetworkConfigPath
+    $networkConfigPath = Find-FullPathInDrive -Drive $CloudDrive -file $NetworkConfigPath
     if (-not (Test-Path $networkConfigPath)) {
         Write-CloudLog "No network-config file found" -Level "WARN"
         return $null

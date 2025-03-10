@@ -406,7 +406,8 @@ function Set-CloudNetworkConfig {
     }
     
     Write-CloudLog "Applying network configuration..." -Level "INFO"
-    
+
+
     try {
         # Get network adapters
         $netAdapters = Get-NetAdapter | Where-Object { $_.Status -eq "Up" }
@@ -417,6 +418,16 @@ function Set-CloudNetworkConfig {
         $adapter = $netAdapters | Select-Object -First 1
 
         if($NetworkConfig.interface) {
+
+            Write-CloudLog "interface: $($NetworkConfig.interface)" -Level "INFO"
+            Write-CloudLog "inet: $($NetworkConfig.inet)" -Level "INFO"
+            Write-CloudLog "address: $($NetworkConfig.address)" -Level "INFO"
+            Write-CloudLog "netmask: $($NetworkConfig.netmask)" -Level "INFO"
+            Write-CloudLog "gateway: $($NetworkConfig.gateway)" -Level "INFO"
+            Write-CloudLog "dns: $($NetworkConfig.dns)" -Level "INFO"
+            
+            
+
             if ($NetworkConfig.inet -eq "dhcp") {
                 Write-CloudLog "Setting adapter to use DHCP" -Level "INFO"
                 Set-NetIPInterface -InterfaceIndex $adapter.ifIndex -Dhcp Enabled

@@ -96,14 +96,9 @@ function ConvertTo-GatewayLength{
 }
 
 
-$networkDef = @"
-auto eth0
-iface eth0 inet dhcp
-    address 192.168.32.11
-    netmask 255.255.254.0
-    gateway 192.168.32.1
-    dns-nameservers 121.1.1.1 1.1.1.1
-"@
+$networkConfigPath = "C:\Users\khawa\gits\cloud-init\testing\CONTENT\0000"
+
+$networkDef = Get-Content $networkConfigPath -Raw
 
 if (-not (Get-Module -ListAvailable -Name "powershell-yaml")) {
     # Write-CloudLog "Installing PowerShell-Yaml module..." -Level "DEBUG"

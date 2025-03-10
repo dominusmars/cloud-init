@@ -368,13 +368,14 @@ function Set-MetadataConfig {
 # Function to apply SSH public keys
 function Set-SSHPublicKeys {
     param (
-        [object]$PublicKeys
+        [object]$PublicKeys,
+        [string]$user = "Administrator"
     )
     
-    Write-CloudLog "Processing SSH public keys... adding to ${env:USERPROFILE}" -Level "INFO"
+    Write-CloudLog "Processing SSH public keys... adding to C:\Users\$user" -Level "INFO"
     
     # Create .ssh directory if it doesn't exist
-    $sshDir = "$env:USERPROFILE\.ssh"
+    $sshDir = "C:\Users\$user\.ssh"
     if (-not (Test-Path $sshDir)) {
         New-Item -ItemType Directory -Path $sshDir -Force | Out-Null
     }

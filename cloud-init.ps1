@@ -55,8 +55,6 @@ function Find-CloudInitDrive {
     foreach ($drive in $cloudDrives) {
         $driveLetter = $drive.DriveLetter
         $drivePath = "${driveLetter}:\"
-
-        Write-CloudLog "Checking drive $drivePath" -Level "DEBUG"
         
         # Search recursively for cloud-init specific files
         $cloudMetaData = Get-ChildItem -Path $drivePath -Recurse -Filter $meta_data_label
@@ -390,8 +388,15 @@ function Set-SSHPublicKeys {
         Write-CloudLog "Adding SSH key" -Level "DEBUG"
         Add-Content -Path $authorizedKeysPath -Value $PublicKeys -Force
     }
+    elseif ($PublicKeys -is [System.IO.FileInfo]) {
+        # Handle file object
+        Write-CloudLog "Adding SSH key from file" -Level "DEBUG"
+        $keyContent = Get-Content -Path $PublicKeys.FullName -Raw
+        Add-Content -Path $authorizedKeysPath -Value $keyContent -Force
+    }
     else {
         Write-CloudLog "Invalid SSH public keys format" -Level "WARN"
+        Write-CloudLog "SSH public keys type is $($PublicKeys.GetType().Name)" -Level "DEBUG"
     }
     
     Write-CloudLog "SSH public keys processed" -Level "INFO"
@@ -785,8 +790,12 @@ function Set-CloudUserdata {
 
 # Function to mark first boot as complete
 function Set-FirstBootComplete {
+    param (
+        [string]$uuid
+    )
+
     $markerFile = "$logDir\first-boot-complete"
-    Set-Content -Path $markerFile -Value (Get-Date) -Force
+    Set-Content -Path $markerFile -Value ($uuid) -Force
     Write-CloudLog "First boot configuration completed" -Level "INFO"
 }
 
@@ -794,11 +803,6 @@ function Set-FirstBootComplete {
 try {
     # Check if this is first boot
     $markerFile = "$logDir\first-boot-complete"
-    if (Test-Path $markerFile) {
-        $completedTime = Get-Content $markerFile
-        Write-CloudLog "First boot already completed on $completedTime. Exiting." -Level "INFO"
-        exit 0
-    }
     
     # Find cloud-init drive
     $cloudDrive = Find-CloudInitDrive
@@ -812,6 +816,17 @@ try {
     
     # Read cloud-init files
     $metadata = Get-CloudMetadata -CloudDrive $cloudDrive
+
+    # Check if first boot is already completed
+    # check for uuid in file and compare with metadata
+    if (Test-Path $markerFile) {
+        $uuid = Get-Content $markerFile
+        if ($metadata.uuid -eq $uuid) {
+            Write-CloudLog "First boot already completed. Exiting." -Level "INFO"
+            exit 0
+        }
+    }
+
     $userdata = Get-CloudUserdata -CloudDrive $cloudDrive
     
     # Apply configurations
@@ -822,7 +837,7 @@ try {
 
     
     # Mark first boot as complete
-    Set-FirstBootComplete
+    Set-FirstBootComplete -uuid $metadata.uuid
     
     # Reboot if needed
     if ($script:rebootRequired) {

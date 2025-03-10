@@ -232,6 +232,7 @@ function Convert-UnixStyleNetworkDef {
         gateway = ""
         dns = @()
     }
+    Write-Host $networkDef
 
     foreach ($line in $lines) {
         $line = $line.Trim()

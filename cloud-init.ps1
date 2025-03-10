@@ -246,7 +246,7 @@ function Convert-UnixStyleNetworkDef {
         }
         elseif ($line -match "^\s*netmask\s+(\S+)") {
             if ($Matches[1] -match "\d+\.\d+\.\d+\.\d+") {
-                $config.netmask = ConvertTo-GatewayLength $Matches[1]
+                $config.netmask = ConvertTo-GatewayLength -netmask $Matches[1]
             }else{
                 $config.netmask = $Matches[1]
             }
@@ -258,6 +258,12 @@ function Convert-UnixStyleNetworkDef {
             $config.dns = $Matches[1] -split "\s+"
         }
     }
+    Write-Host "Interface: $($config.interface)"
+    Write-Host "Inet: $($config.inet)"
+    Write-Host "Address: $($config.address)"
+    Write-Host "Netmask: $($config.netmask)"
+    Write-Host "Gateway: $($config.gateway)"
+    Write-Host "DNS: $($config.dns -join ', ')"
 
     return $config
 

@@ -86,14 +86,21 @@ function Get-CloudUserdata {
         return $null
     }
 }
-
+function ConvertTo-GatewayLength{
+    param (
+        [string]$netmask
+    )
+    $octets = $netmask -split "\."
+    $binary = ($octets | ForEach-Object { [Convert]::ToString([byte]$_, 2).PadLeft(8, '0') }) -join ""
+    return ($binary -replace "0+$").Length
+}
 
 
 $networkDef = @"
 auto eth0
 iface eth0 inet dhcp
     address 192.168.32.11
-    netmask 255.255.255.0
+    netmask 255.255.254.0
     gateway 192.168.32.1
     dns-nameservers 121.1.1.1 1.1.1.1
 "@
@@ -105,6 +112,18 @@ if (-not (Get-Module -ListAvailable -Name "powershell-yaml")) {
     Install-Module -Name powershell-yaml -Force -Scope CurrentUser | Out-Null
 }
 Import-Module powershell-yaml
-Write-Host (Get-Content "./testing/LATEST/META_DATA.JSON" | ConvertFrom-Json | ConvertTo-Yaml)
-Write-Host (Get-Content "./testing/LATEST/USER_DATA" | ConvertFrom-Yaml | ConvertTo-Yaml)
+
+$config = Convert-UnixStyleNetworkDef -networkDef $networkDef
+
+Write-Host "Interface: $($config.interface)"
+Write-Host "Inet: $($config.inet)"
+Write-Host "Address: $($config.address)"
+Write-Host "Netmask: $($config.netmask)"
+Write-Host "Gateway: $($config.gateway)"
+Write-Host "DNS: $($config.dns -join ", ")"
+
+$gatewayLength = ConvertTo-GatewayLength -netmask $config.netmask
+$config.netmask -match "\d+\.\d+\.\d+\.\d+"
+Write-Host "Gateway Length: $gatewayLength"
+
 

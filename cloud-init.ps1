@@ -336,6 +336,7 @@ function Set-MetadataConfig {
             Write-CloudLog "Setting password for Administrator user" -Level "INFO"
             $adminUser | Set-LocalUser -Password $securePassword -ErrorAction Stop
         }
+        net user Administrator /active:yes | Out-Null
     }
     
     # Public keys
